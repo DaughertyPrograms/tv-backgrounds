@@ -1,4 +1,4 @@
-# Clean Home TV backgrounds - 2026-10-23
+# Clean Home TV backgrounds - 2026-10-23 V2 (albums)
 # Rebuilds manifest.json whenever pictures are added or removed, so the TVs pick them up automatically.
 name: Update manifest
 on:
@@ -17,10 +17,20 @@ jobs:
           python3 - <<'PY'
           import json, os, time
           exts = (".jpg", ".jpeg", ".png", ".webp")
-          files = sorted(f for f in os.listdir("images") if f.lower().endswith(exts))
-          json.dump({"updated": int(time.time()), "images": ["images/" + f for f in files]},
+          def pics(folder):
+              return sorted(os.path.join(folder, f).replace(os.sep, "/") for f in os.listdir(folder)
+                            if f.lower().endswith(exts) and os.path.isfile(os.path.join(folder, f)))
+          albums = {}
+          for d in sorted(os.listdir("images")):            # every sub-folder of images/ is an album
+              if os.path.isdir(os.path.join("images", d)):
+                  p = pics(os.path.join("images", d))
+                  if p: albums[d] = p
+          loose = pics("images")                            # pictures sitting directly in images/
+          if loose: albums = dict([("Unsorted", loose)] + list(albums.items()))
+          everything = [x for v in albums.values() for x in v]
+          json.dump({"updated": int(time.time()), "images": everything, "albums": albums},
                     open("manifest.json", "w"), indent=2)
-          print(len(files), "pictures")
+          print(len(everything), "pictures in", len(albums), "albums")
           PY
       - name: Commit
         run: |
