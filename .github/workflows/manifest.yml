@@ -1,0 +1,31 @@
+# Clean Home TV backgrounds - 2026-10-23
+# Rebuilds manifest.json whenever pictures are added or removed, so the TVs pick them up automatically.
+name: Update manifest
+on:
+  push:
+    paths: ["images/**"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: List pictures
+        run: |
+          python3 - <<'PY'
+          import json, os, time
+          exts = (".jpg", ".jpeg", ".png", ".webp")
+          files = sorted(f for f in os.listdir("images") if f.lower().endswith(exts))
+          json.dump({"updated": int(time.time()), "images": ["images/" + f for f in files]},
+                    open("manifest.json", "w"), indent=2)
+          print(len(files), "pictures")
+          PY
+      - name: Commit
+        run: |
+          git config user.name "manifest-bot"
+          git config user.email "manifest-bot@users.noreply.github.com"
+          git add manifest.json
+          git diff --cached --quiet || git commit -m "Update manifest"
+          git push
