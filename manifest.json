@@ -1,13 +1,11 @@
 {
-  "updated": 1792799462,
+  "updated": 1792799475,
   "images": [
-    "images/test 3.png",
     "images/test.png",
     "images/Smokies/smokies.jpg"
   ],
   "albums": {
     "Unsorted": [
-      "images/test 3.png",
       "images/test.png"
     ],
     "Smokies": [
