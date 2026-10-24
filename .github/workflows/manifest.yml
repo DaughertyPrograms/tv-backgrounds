@@ -1,41 +1,79 @@
-# Clean Home TV backgrounds - 2026-10-23 V2 (albums)
-# Rebuilds manifest.json whenever pictures are added or removed, so the TVs pick them up automatically.
-name: Update manifest
+# Clean Home TV backgrounds - 2026-10-24 V3
+# On every change to images/ or videos/:
+#   1. makes a 4K video copy of each big photo (video4k/...mp4) so the TV can show it at full 4K
+#      through its video layer (web apps are limited to 1080p for pictures)
+#   2. rebuilds manifest.json (backup list; the TVs normally read the folder straight from GitHub)
+name: Update backgrounds
 on:
   push:
-    paths: ["images/**"]
+    paths: ["images/**", "videos/**"]
   workflow_dispatch:
 permissions:
   contents: write
+concurrency: { group: backgrounds, cancel-in-progress: false }
 jobs:
-  manifest:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: List pictures
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+      - name: 4K video copies of photos
+        run: |
+          python3 - <<'PY'
+          import os, subprocess, json
+          made = 0
+          keep = set()
+          for root, _, files in os.walk("images"):
+              for f in sorted(files):
+                  if not f.lower().endswith((".jpg", ".jpeg", ".png", ".webp")): continue
+                  src = os.path.join(root, f)
+                  out = os.path.join("video4k", os.path.relpath(src, "images"))
+                  out = os.path.splitext(out)[0] + ".mp4"
+                  w = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width",
+                                      "-of", "csv=p=0", src], capture_output=True, text=True).stdout.strip()
+                  if not w.isdigit() or int(w) < 2560:      # smaller photos gain nothing from 4K
+                      continue
+                  keep.add(out)
+                  if os.path.exists(out) and os.path.getmtime(out) >= os.path.getmtime(src): continue
+                  os.makedirs(os.path.dirname(out), exist_ok=True)
+                  subprocess.run(["ffmpeg", "-y", "-v", "error", "-loop", "1", "-i", src, "-t", "4", "-r", "2",
+                      "-vf", "scale=3840:2160:force_original_aspect_ratio=increase:flags=lanczos,crop=3840:2160,format=yuv420p",
+                      "-c:v", "libx264", "-preset", "slow", "-crf", "14", "-tune", "stillimage", "-profile:v", "high", "-level", "5.1",
+                      "-movflags", "+faststart", "-an", out], check=True)
+                  made += 1
+          # remove 4K copies whose photo was deleted
+          for root, _, files in os.walk("video4k"):
+              for f in files:
+                  p = os.path.join(root, f)
+                  if p not in keep: os.remove(p)
+          print(made, "4K copies made")
+          PY
+      - name: Write manifest
         run: |
           python3 - <<'PY'
           import json, os, time
-          exts = (".jpg", ".jpeg", ".png", ".webp")
-          def pics(folder):
-              return sorted(os.path.join(folder, f).replace(os.sep, "/") for f in os.listdir(folder)
-                            if f.lower().endswith(exts) and os.path.isfile(os.path.join(folder, f)))
-          albums = {}
-          for d in sorted(os.listdir("images")):            # every sub-folder of images/ is an album
-              if os.path.isdir(os.path.join("images", d)):
-                  p = pics(os.path.join("images", d))
-                  if p: albums[d] = p
-          loose = pics("images")                            # pictures sitting directly in images/
-          if loose: albums = dict([("Unsorted", loose)] + list(albums.items()))
+          def files(top, exts):
+              out = {}
+              if not os.path.isdir(top): return out
+              for d in sorted(os.listdir(top)):
+                  p = os.path.join(top, d)
+                  if os.path.isdir(p):
+                      L = sorted(os.path.join(p, f).replace(os.sep, "/") for f in os.listdir(p) if f.lower().endswith(exts))
+                      if L: out[d] = L
+              loose = sorted(os.path.join(top, f).replace(os.sep, "/") for f in os.listdir(top) if f.lower().endswith(exts) and os.path.isfile(os.path.join(top, f)))
+              if loose: out = dict([("Unsorted", loose)] + list(out.items()))
+              return out
+          albums = files("images", (".jpg", ".jpeg", ".png", ".webp"))
+          videos = files("videos", (".mp4", ".m4v", ".mov", ".webm"))
           everything = [x for v in albums.values() for x in v]
-          json.dump({"updated": int(time.time()), "images": everything, "albums": albums},
+          json.dump({"updated": int(time.time()), "images": everything, "albums": albums, "videos": videos},
                     open("manifest.json", "w"), indent=2)
-          print(len(everything), "pictures in", len(albums), "albums")
           PY
       - name: Commit
         run: |
           git config user.name "manifest-bot"
           git config user.email "manifest-bot@users.noreply.github.com"
-          git add manifest.json
-          git diff --cached --quiet || git commit -m "Update manifest"
+          git add -A manifest.json video4k || true
+          git diff --cached --quiet || git commit -m "Update backgrounds (manifest + 4K copies)"
           git push
