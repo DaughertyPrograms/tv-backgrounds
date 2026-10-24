@@ -1,7 +1,8 @@
 {
-  "updated": 1792799499,
+  "updated": 1792802357,
   "images": [
     "images/Smokies/smokies.jpg",
+    "images/Test/Baba.jpg",
     "images/Test/test 3.png",
     "images/Test/test 4.png",
     "images/Test/test.png"
@@ -11,6 +12,7 @@
       "images/Smokies/smokies.jpg"
     ],
     "Test": [
+      "images/Test/Baba.jpg",
       "images/Test/test 3.png",
       "images/Test/test 4.png",
       "images/Test/test.png"
