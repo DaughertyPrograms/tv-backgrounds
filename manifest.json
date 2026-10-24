@@ -1,11 +1,21 @@
 {
-  "updated": 1792802821,
+  "updated": 1792803827,
   "images": [
-    "images/Smokies/smokies.jpg"
+    "images/Smokies/smokies.jpg",
+    "images/Techy/wp13885749.jpg",
+    "images/Techy/wp13908387-4k-frutiger-aero-wallpapers.png",
+    "images/Techy/wp14867644-windows-xp-default-wallpapers.jpg",
+    "images/Techy/wp4111304-ps1-wallpapers.jpg"
   ],
   "albums": {
     "Smokies": [
       "images/Smokies/smokies.jpg"
+    ],
+    "Techy": [
+      "images/Techy/wp13885749.jpg",
+      "images/Techy/wp13908387-4k-frutiger-aero-wallpapers.png",
+      "images/Techy/wp14867644-windows-xp-default-wallpapers.jpg",
+      "images/Techy/wp4111304-ps1-wallpapers.jpg"
     ]
   }
 }
