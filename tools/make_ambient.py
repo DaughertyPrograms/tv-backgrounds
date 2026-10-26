@@ -1,4 +1,4 @@
-# Clean Home ambient tracks - 2026-10-26
+# Clean Home ambient tracks - 2026-10-26 V2 (night-field, gentle-rain, soft-tech-drone redone gentler)
 # Original, fully synthesized loops (no samples, no third-party audio) -> released CC0.
 # Every part of each track is periodic over the loop length L (noise built in the frequency domain,
 # oscillators on exact k/L frequencies, events and reverb tails wrapped around), so the end flows
@@ -71,78 +71,84 @@ def finish(name, x, target_db=-24.0):
     print(name, "rms dB", round(20 * np.log10(np.sqrt(np.mean(x ** 2))), 1), "peak", round(float(pk), 3))
 
 # ---------------- Nature / Night Field ----------------
+def lowpass_st(x, fc, order=2):
+    return np.stack([np.fft.irfft(np.fft.rfft(x[:, k]) * lp(fc, order)(np.maximum(np.fft.rfftfreq(N, 1 / SR), 1e-3)), n=N) for k in (0, 1)], 1)
+def bed(chords, secs, bright, seed, harm=6):   # a very soft sustained chord bed (same voice as the pad tracks, darker)
+    out = np.zeros((N, 2)); ts = 0.0; i = 0
+    while ts < L - 1e-6:
+        ch = chords[i % len(chords)]
+        for j, m in enumerate(ch):
+            v = pad_voice(note_hz(m), secs + 8, 7, 8, bright, harm, seed + i * 10 + j) * (0.9 if m < 50 else 0.5)
+            p = -0.6 + 1.2 * j / max(1, len(ch) - 1)
+            place(out[:, 0], v * np.cos((p + 1) * np.pi / 4), ts * SR); place(out[:, 1], v * np.sin((p + 1) * np.pi / 4), ts * SR)
+        ts += secs; i += 1
+    return out
+
+# ---------------- Nature / Night Field (v2: gentle) ----------------
+# A warm low chord bed, a hush of wind, and two distant, softened crickets.
 def night_field():
-    wind = noise(mul(lp(500), hp(60)), 1) * lfo(3, .25, 1) * lfo(7, .6, 1, 1.3)
-    wind2 = noise(mul(lp(900), hp(150)), 2) * lfo(5, .2, .8, 2.1)
-    L_, R_ = 0.55 * wind + 0.25 * wind2, 0.55 * noise(mul(lp(500), hp(60)), 3) * lfo(3, .25, 1, .4) + 0.25 * wind2
-    mix = stereo(L_, R_) * 0.5
-    # crickets: short pulse trains at slightly different pitches, each with its own rhythm
-    for i, (f, p, period, vol) in enumerate([(4300, -.6, 1.05, .9), (4650, .5, 1.35, .7), (3950, .1, .8, .55), (5100, -.2, 1.7, .4)]):
+    mix = bed([[33, 45, 52, 56, 59], [30, 42, 49, 54, 57], [26, 38, 45, 49, 52], [28, 40, 47, 52, 56]], 30, 2.6, 300) * 0.55
+    wind = stereo(noise(mul(lp(260), hp(40)), 1), noise(mul(lp(260), hp(40)), 3)) * lfo(3, .2, .7)[:, None] * lfo(7, .7, 1, 1.3)[:, None]
+    mix += wind * 0.18
+    for i, (f, p, period, vol) in enumerate([(3400, -.5, 1.25, 1), (3650, .55, 1.6, .7)]):
         c = np.zeros(N); r = np.random.default_rng(20 + i); ts = r.uniform(0, 2)
-        pulse_n = int(.016 * SR); pt = np.arange(pulse_n) / SR
-        pulse = np.sin(2 * np.pi * f * pt) * np.sin(np.pi * np.arange(pulse_n) / pulse_n) ** 2
+        pulse_n = int(.045 * SR); pt = np.arange(pulse_n) / SR
+        pulse = np.sin(2 * np.pi * f * pt) * np.sin(np.pi * np.arange(pulse_n) / pulse_n) ** 3
         while ts < L:
-            if r.random() > .18:                                    # occasional rests
-                for k in range(r.integers(2, 5)): place(c, pulse * r.uniform(.7, 1), (ts + k * .034) * SR)
-            ts += period * r.uniform(.92, 1.08)
-            if r.random() < .03: ts += r.uniform(3, 9)              # a cricket goes quiet for a bit
-        c *= lfo(2 + i, .55, 1, i)                                  # swells over minutes
-        mix += pan(c * vol * 0.30, p)
-    # distant frogs: a few soft low croaks
-    frog = np.zeros(N); r = np.random.default_rng(40)
-    for _ in range(22):
-        n = int(.35 * SR); tt = np.arange(n) / SR
-        cro = np.sin(2 * np.pi * 260 * tt + 3 * np.sin(2 * np.pi * 34 * tt)) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 17 * tt))) * env(n, .03, .2)
-        for k in range(r.integers(1, 4)): place(frog, cro * .5, (r.uniform(0, L) + k * .5) * SR)
-    frog = np.fft.irfft(np.fft.rfft(frog) * lp(700, 2)(np.maximum(np.fft.rfftfreq(N, 1 / SR), 1e-3)), n=N)
-    mix += pan(frog * .05, .7)
-    mix[:, 0] += 0.25 * reverb(mix[:, 0], 2.5, 1); mix[:, 1] += 0.25 * reverb(mix[:, 1], 2.5, 2)
-    finish("Nature/night-field", mix, -28.2)
+            if r.random() > .3:
+                for k in range(r.integers(2, 4)): place(c, pulse * r.uniform(.6, 1), (ts + k * .06) * SR)
+            ts += period * r.uniform(.9, 1.12)
+            if r.random() < .06: ts += r.uniform(4, 12)
+        c *= lfo(2 + i, .2, 1, i)
+        mix += pan(c * vol * 0.045, p)
+    mix[:, 0] += 0.5 * reverb(mix[:, 0], 4, 1, 2500); mix[:, 1] += 0.5 * reverb(mix[:, 1], 4, 2, 2500)
+    mix = lowpass_st(mix, 3800, 2)
+    finish("Nature/night-field", mix, -29)
 
-# ---------------- Nature / Gentle Rain ----------------
+# ---------------- Nature / Gentle Rain (v2: gentle) ----------------
+# Rain heard from indoors: muffled, no hiss, a few soft drips, over a quiet chord bed.
 def gentle_rain():
-    base = stereo(noise(mul(lp(2600, 2), hp(250)), 5), noise(mul(lp(2600, 2), hp(250)), 6)) * 0.35
-    low = stereo(noise(mul(lp(300), hp(40)), 7), noise(mul(lp(300), hp(40)), 8)) * 0.35 * lfo(4, .5, 1)[:, None]
-    mix = base * lfo(3, .7, 1)[:, None] + low
-    drops = np.zeros((N, 2)); r = np.random.default_rng(9)
-    for _ in range(int(L * 9)):
-        f = r.uniform(1800, 4200); n = int(.05 * SR); tt = np.arange(n) / SR
-        d = np.sin(2 * np.pi * f * tt * (1 - 2.5 * tt)) * np.exp(-tt / .008)
-        p = r.uniform(-1, 1); s = r.uniform(0, L) * SR; v = r.uniform(.05, .22)
-        place(drops[:, 0], d * v * np.cos((p + 1) * np.pi / 4), s); place(drops[:, 1], d * v * np.sin((p + 1) * np.pi / 4), s)
-    mix += drops * .5
-    mix[:, 0] += 0.3 * reverb(mix[:, 0], 1.8, 3); mix[:, 1] += 0.3 * reverb(mix[:, 1], 1.8, 4)
-    finish("Nature/gentle-rain", mix, -29.9)
+    mix = bed([[38, 50, 57, 61, 64], [35, 47, 54, 57, 62], [31, 43, 50, 54, 59], [33, 45, 52, 57, 61]], 30, 2.6, 400) * 0.45
+    rain = stereo(noise(mul(lp(900, 2), hp(120)), 5), noise(mul(lp(900, 2), hp(120)), 6)) * lfo(3, .75, 1)[:, None]
+    mix += rain * 0.16
+    drips = np.zeros((N, 2)); r = np.random.default_rng(9)
+    for _ in range(int(L * 1.6)):
+        f = r.uniform(700, 1300); n = int(.25 * SR); tt = np.arange(n) / SR
+        d = np.sin(2 * np.pi * f * tt * (1 + .4 * np.exp(-tt / .02))) * np.exp(-tt / .06) * env(n, .004, 0)
+        p = r.uniform(-.8, .8); st = r.uniform(0, L) * SR; v = r.uniform(.01, .035)
+        place(drips[:, 0], d * v * np.cos((p + 1) * np.pi / 4), st); place(drips[:, 1], d * v * np.sin((p + 1) * np.pi / 4), st)
+    mix += drips
+    mix[:, 0] += 0.45 * reverb(mix[:, 0], 3, 3, 2000); mix[:, 1] += 0.45 * reverb(mix[:, 1], 3, 4, 2000)
+    mix = lowpass_st(mix, 2400, 2)
+    finish("Nature/gentle-rain", mix, -29.5)
 
-# ---------------- Tech / Soft Tech Drone ----------------
+# ---------------- Tech / Soft Tech Drone (v2: gentle) ----------------
+# A warm, slowly breathing low drone with a few soft sine chimes far away. No noise, nothing bright.
 def tech_drone():
     out = np.zeros((N, 2))
-    for root, p, vol in [(55, -.3, 1), (82.4, .3, .7), (110, 0, .35)]:
+    for root, p, vol in [(55, -.3, 1), (82.4, .3, .55), (110, 0, .25)]:
         for side in (0, 1):
             x = np.zeros(N)
-            for h in range(1, 24):
-                cut = lfo(2 + side, 3, 11, root / 30 + side) if True else 1  # moving "filter"
-                amp = (1 / h) / (1 + (h / cut) ** 4)
-                det = 1 + (0.0015 if side else -0.0012) * (1 + h * .02)
+            for h in range(1, 9):
+                cut = lfo(2 + side, 2.0, 4.5, root / 30 + side)
+                amp = (1 / h ** 1.3) / (1 + (h / cut) ** 4)
+                det = 1 + (0.0012 if side else -0.001)
                 x += amp * np.sin(2 * np.pi * per(root * h * det) * t + rng.uniform(0, 6.28))
             out[:, side] += x * vol * (np.cos((p + 1) * np.pi / 4) if side == 0 else np.sin((p + 1) * np.pi / 4))
-    out *= lfo(5, .75, 1)[:, None]
-    # soft digital shimmer: pentatonic pings with long tails
-    pings = np.zeros((N, 2)); r = np.random.default_rng(11); notes = [69, 72, 74, 76, 79, 81, 84]
-    ts = 3.0
+    out *= lfo(5, .8, 1)[:, None]
+    pings = np.zeros((N, 2)); r = np.random.default_rng(11); notes = [64, 67, 69, 71, 74, 76]
+    ts = 4.0
     while ts < L:
-        f = note_hz(notes[r.integers(len(notes))]); n = int(6 * SR); tt = np.arange(n) / SR
-        g = (np.sin(2 * np.pi * f * tt) + .3 * np.sin(2 * np.pi * f * 2.003 * tt)) * np.exp(-tt / 1.6) * env(n, .02, 0)
-        p = r.uniform(-.8, .8)
-        place(pings[:, 0], g * .06 * np.cos((p + 1) * np.pi / 4), ts * SR); place(pings[:, 1], g * .06 * np.sin((p + 1) * np.pi / 4), ts * SR)
-        ts += r.uniform(5, 11)
+        f = note_hz(notes[r.integers(len(notes))]); n = int(8 * SR); tt = np.arange(n) / SR
+        g = np.sin(2 * np.pi * f * tt) * np.exp(-tt / 2.2) * env(n, .05, 0)
+        p = r.uniform(-.7, .7)
+        place(pings[:, 0], g * .025 * np.cos((p + 1) * np.pi / 4), ts * SR); place(pings[:, 1], g * .025 * np.sin((p + 1) * np.pi / 4), ts * SR)
+        ts += r.uniform(8, 16)
     out += pings
-    air = stereo(noise(mul(bp(2500, 1.2)), 12), noise(mul(bp(2500, 1.2)), 13)) * .012 * lfo(3, .3, 1)[:, None]
-    out += air
-    out[:, 0] += 0.45 * reverb(out[:, 0], 5, 5); out[:, 1] += 0.45 * reverb(out[:, 1], 5, 6)
-    finish("Tech/soft-tech-drone", out, -26.5)
+    out[:, 0] += 0.5 * reverb(out[:, 0], 6, 5, 2000); out[:, 1] += 0.5 * reverb(out[:, 1], 6, 6, 2000)
+    out = lowpass_st(out, 1600, 2)
+    finish("Tech/soft-tech-drone", out, -27.5)
 
-# ---------------- Tech / Deep Space ----------------
 def deep_space():
     out = np.zeros((N, 2))
     for side in (0, 1):
