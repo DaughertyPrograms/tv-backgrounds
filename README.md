@@ -14,11 +14,6 @@ The repo must stay **public**. New pictures can take ~5 minutes to appear (GitHu
 Every folder inside `images/` is an album (e.g. `images/Fall/`, `images/Winter/`). On the TV or in Clean Home Studio,
 choose **All pictures** or one album. Pictures placed directly in `images/` show up as the album **Unsorted**.
 
-## 4K
-TV apps can only draw pictures at 1080p. For true 4K, the action makes a 4K video copy of every photo that is
-at least 2560 px wide (in `video4k/`). Turn on **App Settings > Background > Picture quality: 4K** on the TV to use them.
-Upload photos at 3840x2160 or larger for the best result.
-
 ## Moving backgrounds
 Put looping videos in `videos/` (see videos/README.md), then choose **Background: GitHub videos** on the TV.
 
