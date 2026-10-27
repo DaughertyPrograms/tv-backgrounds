@@ -1,4 +1,4 @@
-# Background music — 2026-10-26 V2
+# Background music — 2026-10-27 V3
 
 Peaceful loops for the Clean Home home screen. Each sub-folder is a category on the TV
 (App Settings › Sound › Background music).
@@ -14,8 +14,11 @@ Peaceful loops for the Clean Home home screen. Each sub-folder is a category on 
 
 - **Royalty-free:** every track is original and fully synthesized by `tools/make_ambient.py`
   (no samples or third-party audio). Released under CC0 — free to use for anything.
-- **Seamless:** each track is 4 minutes and built to loop (all sounds wrap around the loop
-  point). On the TV, two players crossfade over the last 6 seconds, so there is never a gap.
+- **Seamless:** each track loops every 240 s (all sounds wrap around the loop point). The file runs 4 s
+  past the loop point with an exact copy of the opening; `loops.json` lists the loop point. At the loop
+  point the TV starts its second player at the matching spot and crossfades over identical audio, so there
+  is no gap and no two different chords ever sound together. Tracks you add without a `loops.json` entry
+  get a gentle 6 s crossfade instead.
 - **Volume-safe:** all tracks are mastered gently (−26 to −29 LUFS, no harsh highs),
   and the TV app never plays them above 60 % of its own output.
 

@@ -1,4 +1,4 @@
-# Clean Home ambient tracks - 2026-10-26 V2 (night-field, gentle-rain, soft-tech-drone redone gentler)
+# Clean Home ambient tracks - 2026-10-27 V3 (adds a 4 s tail for seamless crossfaded looping) (night-field, gentle-rain, soft-tech-drone redone gentler)
 # Original, fully synthesized loops (no samples, no third-party audio) -> released CC0.
 # Every part of each track is periodic over the loop length L (noise built in the frequency domain,
 # oscillators on exact k/L frequencies, events and reverb tails wrapped around), so the end flows
@@ -6,6 +6,7 @@
 import numpy as np, subprocess, os, sys
 SR = 44100
 L = 240                      # seconds per loop
+TAIL = 4                     # seconds of the opening repeated after the loop point
 N = SR * L
 rng = np.random.default_rng(7)
 t = np.arange(N, dtype=np.float64) / SR
@@ -62,11 +63,14 @@ def finish(name, x, target_db=-24.0):
     jump = np.abs(x[0] - x[-1]).max(); typ = np.median(np.abs(np.diff(x[:SR], axis=0)))
     print(name, "loop seam jump", round(float(jump), 5), "typical step", round(float(typ), 5))
     os.makedirs(os.path.dirname(f"{OUT}/{name}"), exist_ok=True)
+    # the file runs TAIL seconds past the loop point with an exact copy of the opening, so a player can switch
+    # to a second copy at the loop point and crossfade between identical, time-aligned audio (no gap, no clash)
+    x = np.concatenate([x, x[:TAIL * SR]])
     raw = (x * 32767).astype("<i2").tobytes()
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "s16le", "-ar", str(SR), "-ac", "2", "-i", "-",
                     "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
                     "-metadata", "title=" + name.split("/")[-1].replace("-", " ").title(),
-                    "-metadata", "artist=Clean Home (original, CC0)", "-metadata", "date=2026-10-26",
+                    "-metadata", "artist=Clean Home (original, CC0)", "-metadata", "date=2026-10-27", "-metadata", "comment=loop=240 tail=4",
                     f"{OUT}/{name}.m4a"], input=raw, check=True)
     print(name, "rms dB", round(20 * np.log10(np.sqrt(np.mean(x ** 2))), 1), "peak", round(float(pk), 3))
 
